@@ -12,7 +12,7 @@ Copy the Jira issue you have open as Markdown, with options for issue details, c
 
 Turn the Jira issue you are viewing into Markdown for notes, documents, and pull requests.
 
-Open an issue over HTTPS and click the extension icon. The extension reads the issue and copies Markdown automatically, using your saved preferences. Paste the result into any editor that accepts plain text. To adjust the output, change the options in the popup and click Copy Markdown again. Description, metadata, comments, attachment links, and extra sections are enabled by default; custom fields are optional. A text preview lets you review or manually copy the result.
+Open an issue over HTTPS and click the extension icon. The extension reads the issue and copies Markdown automatically, using your saved preferences. Paste the result into any editor that accepts plain text. To adjust the output, change the options in the popup and click Copy Markdown again. Description, metadata, comments, attachment links, and extra sections are enabled by default. Additional field values can be enabled under Custom fields. A text preview lets you review or manually copy the result.
 
 Attachments are represented by links, so their existing Jira access controls still apply.
 

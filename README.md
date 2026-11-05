@@ -12,7 +12,7 @@ Jira Copy Markdown is an independent, open-source browser extension by [inndevs]
 2. Click the Jira Copy Markdown extension. It reads the issue and copies Markdown automatically.
 3. Paste the result where you need it.
 
-To change the output, expand **Include in Markdown**, adjust the options, and click **Copy Markdown**. Description, metadata, comments, attachment links, and extra sections are included by default; custom fields are optional. Preferences are remembered for the next export. You can inspect the generated text under **View Markdown** and copy it manually if clipboard access fails.
+To change the output, expand **Include in Markdown**, adjust the options, and click **Copy Markdown**. Description, metadata, comments, attachment links, and extra sections are included by default. Additional field values can be enabled under **Custom fields**. Preferences are remembered for the next export. You can inspect the generated text under **View Markdown** and copy it manually if clipboard access fails.
 
 The extension reads the issue when you open its popup. It first requests issue data from that Jira site's REST API using your existing session. If the API is unavailable, it tries the content rendered on the page. Page-based exports can omit content that has not loaded or is hidden. Jira versions and custom page layouts can differ, so review the output before sharing it. Warnings in the popup identify incomplete results, including comment retrieval limits.
 
