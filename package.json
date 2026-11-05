@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Copy Jira issues as Markdown in one click.",
-  "scripts": { "test": "node --test", "package": "python3 scripts/package.py" },
+  "scripts": {
+    "test": "node --test",
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "package": "python3 scripts/package.py"
+  },
   "license": "MIT"
 }

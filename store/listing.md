@@ -80,6 +80,6 @@ No account with the extension developer, API key, payment, or separate service i
 
 - Extension ZIP: `dist/jira-copy-markdown-VERSION.zip`, produced by `python3 scripts/package.py`.
 - Store icon: `icons/icon128.png`.
-- Screenshots: capture the popup and pasted Markdown with fictional issue data after browser verification. Do not use private Jira content.
+- Screenshot: `store/screenshot-1280x800.png`, rendered from the actual popup with fictional issue data. Regenerate with `node scripts/render-store-assets.mjs`.
 
 This file is a submission draft, not a record of publication or approval.

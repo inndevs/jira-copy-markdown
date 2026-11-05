@@ -1,0 +1,78 @@
+{
+  "key": "DEMO-42",
+  "url": "https://jira.example.org/browse/DEMO-42",
+  "title": "Refresh the project handbook",
+  "fields": [
+    { "name": "Type", "value": "Task" },
+    { "name": "Status", "value": "In progress" },
+    { "name": "Priority", "value": "Medium" }
+  ],
+  "description": {
+    "adf": {
+      "version": 1,
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Make the team handbook easier to navigate." }]
+        },
+        {
+          "type": "bulletList",
+          "content": [
+            {
+              "type": "listItem",
+              "content": [{
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Find answers faster.", "marks": [{ "type": "strong" }] },
+                  { "type": "text", "text": " Add a table of contents." }
+                ]
+              }]
+            },
+            {
+              "type": "listItem",
+              "content": [{
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Keep context.", "marks": [{ "type": "strong" }] },
+                  { "type": "text", "text": " Link the release checklist." }
+                ]
+              }]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "comments": [
+    {
+      "author": "Demo teammate",
+      "created": "2026-01-15",
+      "body": { "text": "The draft is ready for a review." }
+    },
+    {
+      "author": "Demo reviewer",
+      "created": "2026-01-16",
+      "body": { "text": "The new navigation makes the checklist easy to find." }
+    }
+  ],
+  "attachments": [
+    {
+      "id": "demo-attachment",
+      "name": "handbook-outline.pdf",
+      "mimeType": "application/pdf",
+      "url": "https://jira.example.org/secure/attachment/demo/handbook-outline.pdf",
+      "size": 18432
+    },
+    {
+      "id": "demo-notes",
+      "name": "review-notes.txt",
+      "mimeType": "text/plain",
+      "url": "https://jira.example.org/secure/attachment/demo/review-notes.txt",
+      "size": 256
+    }
+  ],
+  "customFields": [{ "name": "Team", "value": "Documentation" }],
+  "sections": [],
+  "warnings": []
+}

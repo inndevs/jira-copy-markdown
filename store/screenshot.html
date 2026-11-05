@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jira Copy Markdown — fictional store demo</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #173e35; background: #f5f3ea; }
+    * { box-sizing: border-box; }
+    body { width: 1280px; height: 800px; margin: 0; overflow: hidden; }
+    .canvas { position: relative; width: 100%; height: 100%; padding: 48px 64px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 650; letter-spacing: -.4px; }
+    .brand img { width: 34px; height: 34px; }
+    h1 { margin: 35px 0 20px; font-size: 67px; line-height: 1.04; letter-spacing: -3.6px; font-weight: 720; }
+    h1 span { color: #146956; }
+    .intro { margin: 0; font-size: 21px; line-height: 1.5; color: #5b6e61; }
+    .preview { position: absolute; left: 64px; top: 397px; width: 633px; height: 290px; padding: 23px 27px; background: #fffefa; border: 1px solid #dce1d4; border-radius: 15px; box-shadow: 0 12px 30px #23483508; }
+    .preview-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; font-size: 11px; line-height: 1; font-weight: 650; letter-spacing: 1.2px; text-transform: uppercase; color: #698073; }
+    .markdown-mark { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 14px; line-height: 20px; letter-spacing: -1.6px; color: #146956; }
+    .preview h2 { margin: 0 0 15px; font-size: 23px; line-height: 1.35; letter-spacing: -.5px; font-weight: 650; }
+    .preview h3 { margin: 0 0 10px; color: #577164; font-size: 14px; font-weight: 650; }
+    .preview p, .preview li { margin: 0; font-size: 16px; line-height: 1.55; color: #405c4c; }
+    .preview ul { margin: 12px 0 0; padding-left: 20px; }
+    .preview li + li { margin-top: 7px; }
+    .preview strong { font-weight: 650; }
+    .popup-shell { position: absolute; top: 79px; left: 815px; width: 382px; overflow: hidden; border: 1px solid #d4e1d7; border-radius: 16px; background: #f6f9f8; box-shadow: 0 24px 60px #1d4f3020, 0 3px 8px #1d4f3008; }
+    iframe { display: block; width: 380px; height: 650px; border: 0; background: #f6f9f8; }
+    .popup-label { position: absolute; top: 49px; left: 815px; margin: 0; font-size: 11px; line-height: 1; font-weight: 650; letter-spacing: 1.4px; color: #698073; text-transform: uppercase; }
+    .connector { position: absolute; left: 728px; top: 472px; width: 54px; height: 54px; display: grid; place-items: center; border: 1px solid #cad8cb; border-radius: 50%; color: #146956; }
+    .connector svg { width: 22px; height: 22px; }
+    .benefit { position: absolute; left: 65px; top: 716px; display: flex; gap: 9px; align-items: center; font-size: 15px; color: #365c47; }
+    .benefit svg { width: 19px; height: 19px; }
+    footer { position: absolute; bottom: 27px; left: 65px; right: 65px; display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .15px; color: #7b8b7d; }
+    footer span:last-child { font-weight: 650; color: #58735f; }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <div class="brand"><img src="../icons/icon128.png" alt="">Jira Copy Markdown</div>
+    <h1>Copy Jira.<br><span>Paste Markdown.</span></h1>
+    <p class="intro">Bring the issue context into your notes,<br>docs, and pull requests.</p>
+    <article class="preview" aria-label="Formatted excerpt from the generated Markdown">
+      <div class="preview-label"><span>Formatted Markdown excerpt</span><span class="markdown-mark" aria-hidden="true">[M↓]</span></div>
+      <h2 id="output-title"></h2>
+      <div id="output-description"></div>
+    </article>
+    <div class="connector" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m6-6-6 6 6 6"/></svg></div>
+    <p class="popup-label">Your extension popup</p>
+    <div class="popup-shell"><iframe id="popup" src="../popup.html" title="Actual Jira Copy Markdown popup, with fictional issue data"></iframe></div>
+    <div class="benefit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Choose the details. Keep the context.</div>
+    <footer><span>Fictional DEMO-42 issue · Actual extension interface</span><span>inndevs</span></footer>
+  </main>
+  <script>
+    // The popup runs its own packaged JavaScript. The rendering script injects
+    // synthetic Chrome APIs before it loads and captures copy writes in memory.
+    // This view formats only the heading and description from that real output.
+    const iframe = document.getElementById('popup');
+    function inlineMarkdown(parent, value) {
+      for (const [index, text] of value.split('**').entries()) {
+        const node = index % 2 ? document.createElement('strong') : document.createTextNode(text);
+        if (index % 2) node.textContent = text;
+        parent.append(node);
+      }
+    }
+    window.prepareScreenshot = async () => {
+      const popup = iframe.contentDocument;
+      if (popup?.getElementById('notice')?.dataset.state !== 'success') return false;
+      popup.getElementById('options').open = true;
+      const markdown = popup.getElementById('markdown').value;
+      if (markdown !== iframe.contentWindow.__copiedMarkdown) throw new Error('Preview must match the captured copy output.');
+      if (!markdown.startsWith('# DEMO-42 — ')) throw new Error('Only the fictional DEMO-42 issue is allowed.');
+      document.getElementById('output-title').textContent = markdown.split('\n')[0].replace(/^# /, '');
+      const description = markdown.split('\n\n## Description\n\n')[1]?.split('\n\n## ')[0];
+      if (!description) throw new Error('The Markdown description is missing.');
+      const output = document.getElementById('output-description');
+      output.replaceChildren();
+      const heading = document.createElement('h3');
+      heading.textContent = 'Description';
+      output.append(heading);
+      for (const block of description.split('\n\n')) {
+        if (block.startsWith('- ')) {
+          const list = document.createElement('ul');
+          for (const line of block.split('\n')) {
+            const item = document.createElement('li');
+            inlineMarkdown(item, line.replace(/^- /, ''));
+            list.append(item);
+          }
+          output.append(list);
+        } else {
+          const paragraph = document.createElement('p');
+          inlineMarkdown(paragraph, block);
+          output.append(paragraph);
+        }
+      }
+      iframe.style.height = `${Math.ceil(popup.body.getBoundingClientRect().height)}px`;
+      await document.fonts.ready;
+      window.__screenshotReady = true;
+      return true;
+    };
+  </script>
+</body>
+</html>

@@ -4,6 +4,8 @@ Copy the Jira issue you have open as Markdown. Use the result in notes, document
 
 Jira Copy Markdown is an independent, open-source browser extension by [inndevs](https://github.com/inndevs). It is not affiliated with or endorsed by Atlassian.
 
+![Jira Copy Markdown showing a fictional issue and its formatted Markdown](store/screenshot-1280x800.png)
+
 ## Use
 
 1. Open a Jira issue over HTTPS in Chrome and sign in to Jira as usual.
@@ -51,6 +53,14 @@ Run the tests with a current Node.js release:
 ```sh
 npm test
 ```
+
+Run the browser integration checks in an isolated headless Chrome profile:
+
+```sh
+npm run test:browser
+```
+
+Set `CHROME_BIN` if Chrome is not at its standard macOS location. The browser checks use fictional Jira responses and do not use your signed-in profile.
 
 Create a distributable ZIP with Python 3:
 
