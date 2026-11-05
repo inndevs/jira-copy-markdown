@@ -1,10 +1,4 @@
-/* Original, dependency-free Jira extraction. Runs only after the popup requests it. */
-(() => {
-  "use strict";
-  const installed = "__jiraMarkdownReaderInstalled";
-  if (globalThis[installed]) return;
-  globalThis[installed] = true;
-
+(async () => {
   const KEY = /^[A-Z0-9_]+-\d+$/i;
   const MAX_COMMENTS = 1000;
   const SUMMARY = '#summary-val, [data-testid="issue.views.issue-base.foundation.summary.heading"], [data-testid="issue.views.issue-base.foundation.summary.heading.text"]';
@@ -34,13 +28,12 @@
 
   function currentIssue() {
     const url = new URL(location.href);
-    if (url.protocol !== "https:") throw new Error("Open your Jira issue over HTTPS to export it securely.");
+    if (url.protocol !== "https:") throw new Error("Open this Jira issue over HTTPS.");
     const view = issueView();
     const pathIssue = browsePath(url);
     let key = keyValue(url.searchParams.get("selectedIssue")) || keyValue(url.searchParams.get("issueKey")) || pathIssue?.key;
     let breadcrumbURL;
-    // A board's issue-card links are deliberately excluded. Only the current issue's
-    // breadcrumb is eligible, and only when an issue heading is present.
+    // Board-card links must not select a different issue.
     if (view.summary) {
       const breadcrumbs = all(view.scope, CURRENT_KEY).filter(visible);
       const knownKeys = breadcrumbs.map(node => keyValue(text(node))).filter(Boolean);
@@ -54,12 +47,12 @@
           try {
             const linked = new URL(href, url);
             if (linked.origin === url.origin && browsePath(linked)?.key === key) breadcrumbURL = linked;
-          } catch { /* A malformed DOM link must not override a valid selected issue. */ }
+          } catch {}
         }
         break;
       }
     }
-    if (!key) throw new Error("No current Jira issue found. Open an issue, or select one on the board, then try again.");
+    if (!key) throw new Error("No current Jira issue found. Open or select an issue.");
     const metaContext = first(document, 'meta[name="ajs-context-path"]')?.getAttribute("content");
     const safeContext = typeof metaContext === "string" && /^(?:\/(?!\/)[^?#\\]*)?$/.test(metaContext) ? metaContext.replace(/\/$/, "") : null;
     const legacyContext = url.pathname.match(/^(.*?)\/(?:secure|plugins\/servlet)\//)?.[1];
@@ -76,7 +69,7 @@
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetch(url, { method: "GET", credentials: "include", headers: { Accept: "application/json" }, redirect: "error", signal: controller.signal });
+      const response = await fetch(url, { credentials: "include", headers: { Accept: "application/json" }, redirect: "error", signal: controller.signal });
       if (!response.ok) throw new ApiError(`Jira returned HTTP ${response.status}`, response.status);
       try { return await response.json(); }
       catch { throw new ApiError("Jira did not return valid JSON"); }
@@ -111,7 +104,6 @@
       const child = display(value.child, depth + 1);
       return `${display(label, depth + 1)}${child ? ` / ${child}` : ""}`;
     }
-    // Preserve meaningful custom values without dumping API bookkeeping objects.
     return Object.entries(value)
       .filter(([name, item]) => !/^(?:id|self|accountId|avatarUrls|iconUrl|schema|type|_.*)$/i.test(name) && item != null)
       .slice(0, 12).map(([name, item]) => {
@@ -130,12 +122,15 @@
       const normalized = normalizeComment(comment, index);
       if (found.size < MAX_COMMENTS || found.has(normalized.id)) found.set(normalized.id, normalized);
     });
-    add(Array.isArray(embedded?.comments) ? embedded.comments : []);
+    const initial = Array.isArray(embedded?.comments) ? embedded.comments : [];
+    add(initial);
     let startAt = 0;
-    let expected = Number.isFinite(embedded?.total) ? embedded.total : null;
-    let finished = false;
+    let expected = Number.isFinite(embedded?.total) && embedded.total >= 0 ? embedded.total : null;
+    // Raw v2 bodies need renderedBody from the comments endpoint.
+    let finished = found.size === expected
+      && initial.every(comment => comment.body?.type === "doc" || (typeof comment.renderedBody === "string" && comment.renderedBody.trim()));
     try {
-      for (let pageNumber = 0; pageNumber < 100 && startAt < MAX_COMMENTS; pageNumber++) {
+      for (let pageNumber = 0; !finished && pageNumber < 100 && startAt < MAX_COMMENTS; pageNumber++) {
         const params = { startAt, maxResults: Math.min(100, MAX_COMMENTS - startAt), orderBy: "created", expand: "renderedBody" };
         let page;
         try { page = await getJSON(endpoint(current, version, "/comment", params)); }
@@ -155,7 +150,7 @@
         startAt = next;
         // Without a total, stop only on an empty page: servers may reduce page sizes.
       }
-      if (!finished && (expected === null || found.size < expected)) warnings.push(`Comments may be incomplete: exported ${found.size}${expected === null ? "" : ` of ${expected}`}; pagination stopped at the safety limit or stopped advancing.`);
+      if (!finished && (expected === null || found.size < expected)) warnings.push(`Comments may be incomplete: exported ${found.size}${expected === null ? "" : ` of ${expected}`}.`);
     } catch (error) {
       warnings.push(`Could not retrieve all comments (${error.message}). Exported ${found.size} available comments.`);
     }
@@ -219,7 +214,7 @@
     if (fresh.key !== current.key) throw new Error("The selected Jira issue changed while reading it. Try the export again.");
     const { scope, summary } = fresh.view;
     if (!summary || !text(summary)) throw new Error(`Could not read ${current.key}: ${error.message}. Check that the issue is open and you are signed in.`);
-    const issue = { key: current.key, title: text(summary), url: current.url, fields: [], description: domBody(first(scope, '#description-val, [data-testid="issue.views.field.rich-text.description"], [data-testid*="description-content"]')), comments: [], attachments: [], customFields: [], sections: [], warnings: [`Jira REST API was unavailable (${error.message}). Exported visible page content; collapsed or unloaded content may be missing.`] };
+    const issue = { key: current.key, title: text(summary), url: current.url, fields: [], description: domBody(first(scope, '#description-val, [data-testid="issue.views.field.rich-text.description"], [data-testid*="description-content"]')), comments: [], attachments: [], customFields: [], sections: [], warnings: [`Jira API unavailable (${error.message}). Exported visible page content; collapsed or unloaded content may be missing.`] };
     for (const [name, selector] of [
       ["Type", '#type-val, [data-testid*="issue-type"]'], ["Status", '#status-val, [data-testid*="status-field"]'],
       ["Priority", '#priority-val, [data-testid*="priority-field"]'], ["Assignee", '#assignee-val, [data-testid*="assignee-field"]'],
@@ -273,9 +268,6 @@
     return issue;
   }
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.action !== "readIssue") return false;
-    readIssue().then(issue => sendResponse({ ok: true, issue }), error => sendResponse({ ok: false, error: error.message || "Could not read this Jira issue." }));
-    return true;
-  });
+  try { return { ok: true, issue: await readIssue() }; }
+  catch (error) { return { ok: false, error: error.message || "Could not read this Jira issue." }; }
 })();

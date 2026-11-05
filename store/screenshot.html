@@ -51,9 +51,6 @@
     <footer><span>Fictional DEMO-42 issue · Actual extension interface</span><span>inndevs</span></footer>
   </main>
   <script>
-    // The popup runs its own packaged JavaScript. The rendering script injects
-    // synthetic Chrome APIs before it loads and captures copy writes in memory.
-    // This view formats only the heading and description from that real output.
     const iframe = document.getElementById('popup');
     function inlineMarkdown(parent, value) {
       for (const [index, text] of value.split('**').entries()) {
@@ -94,7 +91,6 @@
       }
       iframe.style.height = `${Math.ceil(popup.body.getBoundingClientRect().height)}px`;
       await document.fonts.ready;
-      window.__screenshotReady = true;
       return true;
     };
   </script>

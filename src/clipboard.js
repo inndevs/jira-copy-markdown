@@ -3,9 +3,7 @@ export async function copyText(value) {
   try {
     await navigator.clipboard.writeText(value);
   } catch (clipboardError) {
-    // A popup can lose focus while a network request finishes. Chrome's
-    // clipboardWrite permission also permits a selection-based copy.
-    if (typeof document === 'undefined') throw clipboardError;
+    // Clipboard permission still allows selection-based copy if the popup loses focus.
     const focused = document.activeElement;
     const selection = document.createElement('textarea');
     selection.value = value;

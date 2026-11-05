@@ -1,93 +1,10 @@
-#!/usr/bin/env node
-// Dependency-free integration check. Uses only synthetic Jira data, a fresh
-// browser profile, and the extension's genuine action/activeTab permission.
-// Run: node scripts/browser-smoke.mjs (or set CHROME_BIN to Chrome/Chromium).
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchChrome, delay, until } from './cdp.mjs';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const root = fileURLToPath(new URL('../', import.meta.url));
 const fixtureOrigin = 'https://demo.atlassian.net';
 const fixtureUrl = `${fixtureOrigin}/browse/DEMO-42`;
-const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
-
-async function until(check, description, timeout = 10000) {
-  const end = Date.now() + timeout;
-  let lastError;
-  do {
-    try { const value = await check(); if (value) return value; }
-    catch (error) { lastError = error; }
-    await delay(50);
-  } while (Date.now() < end);
-  throw new Error(`Timed out waiting for ${description}${lastError ? `: ${lastError.message}` : ''}`);
-}
-
-async function browserBinary() {
-  const candidates = process.env.CHROME_BIN ? [process.env.CHROME_BIN] : [
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome',
-  ];
-  for (const candidate of candidates) {
-    try { await access(candidate); return candidate; } catch { /* Try the next known path. */ }
-  }
-  throw new Error('Chrome/Chromium was not found. Set CHROME_BIN to a recent browser executable.');
-}
-
-async function connect(url) {
-  const socket = new WebSocket(url);
-  await new Promise((resolve, reject) => {
-    socket.addEventListener('open', resolve, { once: true });
-    socket.addEventListener('error', reject, { once: true });
-  });
-  let sequence = 0;
-  const pending = new Map();
-  const listeners = new Map();
-  socket.addEventListener('message', ({ data }) => {
-    const message = JSON.parse(data);
-    if (message.id) {
-      const task = pending.get(message.id);
-      if (!task) return;
-      clearTimeout(task.timer);
-      pending.delete(message.id);
-      if (message.error) task.reject(new Error(`${task.method}: ${message.error.message}`));
-      else task.resolve(message.result);
-    } else {
-      for (const callback of listeners.get(message.method) || []) callback(message.params, message.sessionId);
-    }
-  });
-  socket.addEventListener('close', () => {
-    for (const task of pending.values()) {
-      clearTimeout(task.timer);
-      task.reject(new Error(`Browser closed during ${task.method}`));
-    }
-    pending.clear();
-  });
-  return {
-    call(method, params = {}, sessionId) {
-      return new Promise((resolve, reject) => {
-        const id = ++sequence;
-        const timer = setTimeout(() => { pending.delete(id); reject(new Error(`CDP timed out: ${method}`)); }, 10000);
-        pending.set(id, { method, resolve, reject, timer });
-        socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
-      });
-    },
-    on(method, callback) {
-      const entries = listeners.get(method) || [];
-      entries.push(callback);
-      listeners.set(method, entries);
-    },
-    async evaluate(sessionId, expression, userGesture = false) {
-      const result = await this.call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture }, sessionId);
-      if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
-      return result.result.value;
-    },
-    close() { socket.close(); },
-  };
-}
 
 const paragraph = value => ({ type: 'paragraph', content: [{ type: 'text', text: value }] });
 const adf = (...content) => ({ type: 'doc', version: 1, content });
@@ -131,51 +48,12 @@ const fixtureHtml = `<!doctype html><html><head><title>Synthetic Jira fixture</t
   </main>
 </body></html>`;
 
-const profile = await mkdtemp(join(tmpdir(), 'jira-markdown-smoke-'));
-let processHandle;
-let browser;
-let cleaned = false;
-let browserErrors = '';
-
-async function cleanup() {
-  if (cleaned) return;
-  cleaned = true;
-  if (browser) {
-    try { await browser.call('Browser.close'); } catch { /* Browser may already have exited. */ }
-    browser.close();
-  }
-  if (processHandle?.exitCode === null) {
-    processHandle.kill('SIGTERM');
-    await Promise.race([new Promise(resolve => processHandle.once('exit', resolve)), delay(3000)]);
-    if (processHandle.exitCode === null) processHandle.kill('SIGKILL');
-  }
-  await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-}
-for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
-  cleanup().finally(() => process.exit(signal === 'SIGINT' ? 130 : 143));
-});
-
+const { browser, targetId: jiraTarget, sessionId: jiraSession, close } = await launchChrome([
+  '--enable-unsafe-extension-debugging', '--disable-component-update',
+  '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1',
+]);
 try {
-  processHandle = spawn(await browserBinary(), [
-    '--headless=new', '--remote-debugging-port=0', '--enable-unsafe-extension-debugging',
-    '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
-    '--disable-component-update', '--disable-sync', '--disable-gpu', '--noerrdialogs',
-    '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1',
-    `--user-data-dir=${profile}`, 'about:blank',
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
-  processHandle.stderr.on('data', chunk => { browserErrors = (browserErrors + chunk).slice(-5000); });
-  let spawnError;
-  processHandle.once('error', error => { spawnError = error; });
-  const activePort = await until(async () => {
-    if (spawnError) throw spawnError;
-    if (processHandle.exitCode !== null) throw new Error(`Chrome exited: ${browserErrors}`);
-    return (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).trim().split('\n');
-  }, 'isolated Chrome debugging endpoint');
-  browser = await connect(`ws://127.0.0.1:${activePort[0]}${activePort[1]}`);
   const { id: extensionId } = await browser.call('Extensions.loadUnpacked', { path: root });
-  const { targetId: jiraTarget } = await browser.call('Target.createTarget', { url: 'about:blank' });
-  const { sessionId: jiraSession } = await browser.call('Target.attachToTarget', { targetId: jiraTarget, flatten: true });
-
   let scenario = 'api';
   const requests = [];
   const interceptionErrors = [];
@@ -343,7 +221,7 @@ try {
   assert.match(inertResult, /!\[fixture\]\(https:\/\/renderer-check\.invalid\/image\.png\)/);
   assert.deepEqual(rendererRequests, [], 'Converting HTML must not load referenced remote resources');
   console.log('PASS HTML conversion makes no image, iframe, stylesheet, video, or background resource requests');
-  console.log('Browser smoke checks passed; isolated browser and profile cleaned up.');
+  console.log('Browser smoke checks passed.');
 } finally {
-  await cleanup();
+  await close();
 }

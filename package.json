@@ -1,6 +1,6 @@
 {
-  "name": "jira-copy-markdown",
-  "version": "1.0.2",
+  "name": "jira-ticket-copy-as-markdown",
+  "version": "1.0.3",
   "private": true,
   "type": "module",
   "description": "Copy Jira issues as Markdown in one click.",

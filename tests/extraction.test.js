@@ -11,16 +11,10 @@ const emptyDocument = { querySelector: () => null, querySelectorAll: () => [] };
 
 function browser({ href = "https://example.atlassian.net/browse/TEAM-42", fetch: respond, document = emptyDocument } = {}) {
   const requests = [];
-  const listeners = [];
   const context = vm.createContext({ URL, AbortController, setTimeout, clearTimeout, location: { href }, document,
-    chrome: { runtime: { onMessage: { addListener: listener => listeners.push(listener) } } },
     fetch: async (url, options) => { requests.push({ url, options }); return respond(url, options); }
   });
-  const install = () => vm.runInContext(source, context);
-  install();
-  return { requests, listeners, install, read: () => new Promise(resolve => {
-    assert.equal(listeners[0]({ action: "readIssue" }, {}, resolve), true);
-  }) };
+  return { requests, read: () => vm.runInContext(source, context) };
 }
 
 function node(value, attrs = {}, matches = {}) {
@@ -34,12 +28,12 @@ function node(value, attrs = {}, matches = {}) {
   return result;
 }
 
-test("injection is idle and idempotent, and unrelated messages are ignored", () => {
-  const page = browser();
-  page.install();
-  assert.equal(page.listeners.length, 1);
-  assert.equal(page.requests.length, 0);
-  assert.equal(page.listeners[0]({ action: "somethingElse" }, {}, () => assert.fail()), false);
+test("each injection returns fresh data without a persistent listener", async () => {
+  let reads = 0;
+  const page = browser({ fetch: () => response({ fields: { summary: `Issue ${++reads}`, comment: { comments: [], total: 0 } } }) });
+  assert.equal((await page.read()).issue.title, "Issue 1");
+  assert.equal((await page.read()).issue.title, "Issue 2");
+  assert.equal(page.requests.length, 2);
 });
 
 test("HTTP pages are rejected before any authenticated request", async () => {
@@ -74,7 +68,7 @@ test("reads the current issue over same-origin GET and preserves rich content an
   for (const { url, options } of page.requests) {
     assert.equal(new URL(url).origin, "https://example.atlassian.net");
     assert.equal(options.credentials, "include");
-    assert.equal(options.method, "GET");
+    assert.equal(options.method || "GET", "GET");
     assert.equal(options.redirect, "error");
   }
 });
@@ -111,6 +105,25 @@ test("comment pagination uses the actual page length, preserves identical commen
   assert.deepEqual(Array.from(result.issue.comments, item => item.id), ["1", "2", "3"]);
   assert.deepEqual(page.requests.slice(1).map(item => new URL(item.url).searchParams.get("startAt")), ["0", "1", "2"]);
   assert.equal(result.issue.warnings, undefined);
+});
+
+test("complete embedded rich comments avoid a redundant API call", async () => {
+  const page = browser({ fetch: () => response({ fields: { summary: "Complete", comment: { comments: [comment(1), { ...comment(2), body: "*Bold*", renderedBody: "<strong>Bold</strong>" }], total: 2 } } }) });
+  const result = await page.read();
+  assert.deepEqual(Array.from(result.issue.comments, item => item.id), ["1", "2"]);
+  assert.equal(result.issue.comments[0].body.adf.content[0].content[0].text, "Reply");
+  assert.equal(result.issue.comments[1].body.html, "<strong>Bold</strong>");
+  assert.equal(result.issue.warnings, undefined);
+  assert.equal(page.requests.length, 1);
+});
+
+test("raw embedded wiki comments still fetch rendered formatting", async () => {
+  const page = browser({ fetch: url => url.includes("/comment?")
+    ? response({ comments: [{ ...comment(1), body: "*Bold*", renderedBody: "<strong>Bold</strong>" }], total: 1 })
+    : response({ fields: { summary: "Wiki", comment: { comments: [{ ...comment(1), body: "*Bold*" }], total: 1 } } }) });
+  const result = await page.read();
+  assert.equal(result.issue.comments[0].body.html, "<strong>Bold</strong>");
+  assert.equal(page.requests.length, 2);
 });
 
 test("comment limits are explicit and keep the first 1000 comments", async () => {

@@ -1,10 +1,7 @@
-// Original Markdown renderer. ADF shapes follow Atlassian's public documentation:
-// https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/
-
-const DEFAULT_OPTIONS = Object.freeze({
+const DEFAULT_OPTIONS = {
   description: true, comments: true, metadata: true,
   attachments: true, fields: false, sections: true,
-});
+};
 
 const array = (value) => Array.isArray(value) ? value : [];
 const string = (value) => value == null ? "" : String(value);
@@ -26,9 +23,8 @@ function oneLine(value) {
 function resolveUrl(value, baseUrl) {
   if (!value) return "";
   try {
-    const url = baseUrl ? new URL(string(value), baseUrl) : new URL(string(value));
+    const url = new URL(string(value), baseUrl || undefined);
     if (!["http:", "https:", "mailto:", "tel:"].includes(url.protocol)) return "";
-    // Encode Markdown delimiters without changing query parameters or their order.
     return url.href.replace(/[<>()\\\s]/g, (character) =>
       `%${character.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
   } catch {
@@ -136,9 +132,10 @@ function media(node, context) {
       /\.(?:png|jpe?g|gif|webp|svg|avif|bmp)$/i.test(attachment.name || "");
     return `${image ? "!" : ""}[${oneLine(name)}](${attachmentUrl})`;
   }
-  const directUrl = attrs.url || attrs.src || array(node.marks).find((mark) => mark.type === "link")?.attrs?.href;
-  if (resolveUrl(directUrl, context.baseUrl)) return link(oneLine(name), directUrl, context);
-  return resolveUrl(context.baseUrl) ? link(`${oneLine(name)} — view in Jira`, context.baseUrl, context) :
+  const directUrl = resolveUrl(attrs.url || attrs.src || array(node.marks).find((mark) => mark.type === "link")?.attrs?.href, context.baseUrl);
+  if (directUrl) return `[${oneLine(name)}](${directUrl})`;
+  const sourceUrl = resolveUrl(context.baseUrl);
+  return sourceUrl ? `[${oneLine(name)} — view in Jira](${sourceUrl})` :
     `${oneLine(name)} (media unavailable)`;
 }
 
@@ -152,13 +149,17 @@ function adfNode(node, context) {
   const attrs = node.attrs || {};
   switch (node.type) {
     case "text": return applyMarks(escapeText(node.text), node.marks, context, node.text);
-    case "doc": return adfChildren(node, context);
+    case "doc":
+    case "listItem":
+    case "mediaSingle":
+    case "mediaGroup": return adfChildren(node, context);
     case "paragraph": return adfChildren(node, context, true);
     case "heading": return `${"#".repeat(Math.min(6, Math.max(1, Number(attrs.level) || 1)))} ${adfChildren(node, context, true)}`;
     case "hardBreak": return "  \n";
     case "rule": return "---";
     case "codeBlock": return codeBlock(array(node.content).map((child) => child.text || "").join(""), attrs.language);
-    case "blockquote": return quote(adfChildren(node, context));
+    case "blockquote":
+    case "panel": return quote(adfChildren(node, context));
     case "bulletList":
     case "orderedList":
     case "taskList": {
@@ -175,7 +176,6 @@ function adfNode(node, context) {
         return listItem(value, marker);
       }).join("\n");
     }
-    case "listItem": return adfChildren(node, context);
     case "table": return table(array(node.content).map((row) => array(row.content).map((cell) => ({
       text: adfChildren(cell, context), header: cell.type === "tableHeader",
       colspan: cell.attrs?.colspan, rowspan: cell.attrs?.rowspan,
@@ -191,9 +191,6 @@ function adfNode(node, context) {
     case "blockCard": return link(escapeText(attrs.text || attrs.url || "Link"), attrs.url, context);
     case "media":
     case "mediaInline": return media(node, context);
-    case "mediaSingle":
-    case "mediaGroup": return adfChildren(node, context);
-    case "panel": return quote(adfChildren(node, context));
     case "expand":
     case "nestedExpand": return blocks([attrs.title ? wrap(oneLine(attrs.title), "**") : "", adfChildren(node, context)]);
     default: return array(node.content).length ? adfChildren(node, context, !array(node.content).some((child) =>
@@ -202,7 +199,6 @@ function adfNode(node, context) {
   }
 }
 
-/** Convert an Atlassian Document Format tree without fetching remote resources. */
 export function adfToMarkdown(doc, { baseUrl = "", attachments = [] } = {}) {
   return adfNode(doc, { baseUrl, attachments }).trim();
 }
@@ -289,25 +285,7 @@ function htmlNode(node, context) {
   }
 }
 
-function decodeEntities(value) {
-  const names = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-  return value.replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (match, entity) => {
-    if (entity[0] !== "#") return names[entity.toLowerCase()] || match;
-    const point = entity[1].toLowerCase() === "x" ? Number.parseInt(entity.slice(2), 16) : Number.parseInt(entity.slice(1), 10);
-    return point > 0 && point <= 0x10FFFF && !(point >= 0xD800 && point <= 0xDFFF) ? String.fromCodePoint(point) : "�";
-  });
-}
-
-/** Convert rendered Jira HTML. Outside a browser, retain readable text only. */
 export function htmlToMarkdown(html, { baseUrl = "" } = {}) {
-  if (typeof DOMParser === "undefined") {
-    const text = string(html).replace(/<(script|style|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
-      .replace(/<!--[^]*?-->/g, "")
-      .replace(/<br\s*\/?\s*>/gi, "\n")
-      .replace(/<\/(?:p|div|h[1-6]|li|tr|blockquote|pre)\s*>/gi, "\n\n")
-      .replace(/<[^>]*>/g, "");
-    return escapeText(decodeEntities(text).replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim());
-  }
   const document = new DOMParser().parseFromString(string(html), "text/html");
   return htmlChildren(document.body, { baseUrl }).trim();
 }
@@ -315,15 +293,8 @@ export function htmlToMarkdown(html, { baseUrl = "" } = {}) {
 function bodyToMarkdown(body, context) {
   if (typeof body === "string") return escapeText(body).trim();
   if (!body) return "";
-  if (body.adf) {
-    const rendered = adfToMarkdown(body.adf, context);
-    if (rendered) return rendered;
-  }
-  if (body.html) {
-    const rendered = htmlToMarkdown(body.html, context);
-    if (rendered) return rendered;
-  }
-  return escapeText(body.text || "").trim();
+  return (body.adf && adfToMarkdown(body.adf, context)) ||
+    (body.html && htmlToMarkdown(body.html, context)) || escapeText(body.text).trim();
 }
 
 function fieldValue(value, context) {
@@ -339,51 +310,39 @@ function fieldValue(value, context) {
 }
 
 function fieldsTable(fields, context) {
-  if (!array(fields).length) return "";
+  fields = array(fields);
+  if (!fields.length) return "";
   return table([
     [{ text: "Field", header: true }, { text: "Value", header: true }],
-    ...array(fields).map((field) => [{ text: oneLine(field.name) }, { text: fieldValue(field.value, context) }]),
+    ...fields.map((field) => [{ text: oneLine(field.name) }, { text: fieldValue(field.value, context) }]),
   ]);
 }
 
-/** Render the normalized issue contract; options toggle sections, never the source. */
 export function renderIssue(issue = {}, options = {}) {
   const include = { ...DEFAULT_OPTIONS, ...options };
   const context = { baseUrl: issue.url || "", attachments: array(issue.attachments) };
   const heading = [issue.key, issue.title].filter(Boolean).join(" — ") || "Jira issue";
   const output = [`# ${oneLine(heading)}`, `Source: ${link(oneLine(issue.url || "Source unavailable"), issue.url, context)}`];
-  if (include.metadata) {
-    const value = fieldsTable(issue.fields, context);
-    if (value) output.push(`## Details\n\n${value}`);
-  }
-  if (include.description) {
-    const value = bodyToMarkdown(issue.description, context);
-    if (value) output.push(`## Description\n\n${value}`);
-  }
-  if (include.fields) {
-    const value = fieldsTable(issue.customFields, context);
-    if (value) output.push(`## Additional fields\n\n${value}`);
-  }
+  const section = (name, value) => { if (value) output.push(`## ${oneLine(name)}\n\n${value}`); };
+  if (include.metadata) section("Details", fieldsTable(issue.fields, context));
+  if (include.description) section("Description", bodyToMarkdown(issue.description, context));
+  if (include.fields) section("Additional fields", fieldsTable(issue.customFields, context));
   if (include.sections) {
-    for (const section of array(issue.sections)) {
-      const value = bodyToMarkdown(section.body, context);
-      if (value) output.push(`## ${oneLine(section.name || "Section")}\n\n${value}`);
-    }
+    for (const item of array(issue.sections)) section(item.name || "Section", bodyToMarkdown(item.body, context));
   }
-  if (include.attachments && array(issue.attachments).length) {
-    output.push(`## Attachments\n\n${issue.attachments.map((attachment) => {
+  if (include.attachments) {
+    section("Attachments", context.attachments.map((attachment) => {
       const name = oneLine(attachment.name || "Attachment");
       const size = typeof attachment.size === "number" && Number.isFinite(attachment.size) ? ` (${attachment.size} bytes)` : "";
       return `- ${link(name, attachment.url, context)}${size}`;
-    }).join("\n")}`);
+    }).join("\n"));
   }
-  if (include.comments && array(issue.comments).length) {
-    const comments = issue.comments.map((comment) => {
+  if (include.comments) {
+    section("Comments", array(issue.comments).map((comment) => {
       const author = typeof comment.author === "object" ? comment.author?.displayName || comment.author?.name : comment.author;
       const heading = [author || "Unknown author", comment.created].filter(Boolean).map(oneLine).join(" — ");
       return `### ${heading}\n\n${bodyToMarkdown(comment.body, context) || "(Empty comment)"}`;
-    });
-    output.push(`## Comments\n\n${comments.join("\n\n")}`);
+    }).join("\n\n"));
   }
   return `${blocks(output).trim()}\n`;
 }

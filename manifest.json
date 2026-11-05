@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Jira Ticket – Copy as Markdown",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Copy a Jira issue, its description, comments and attachment links as Markdown with one click.",
-  "homepage_url": "https://github.com/inndevs/jira-copy-markdown",
+  "homepage_url": "https://github.com/inndevs/jira-ticket-copy-as-markdown",
   "permissions": [
     "activeTab",
     "scripting",

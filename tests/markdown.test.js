@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { adfToMarkdown, htmlToMarkdown, renderIssue } from "../src/markdown.js";
+import { adfToMarkdown, renderIssue } from "../src/markdown.js";
 
 const text = (value, marks) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
 const paragraph = (...content) => ({ type: "paragraph", content });
@@ -105,10 +105,11 @@ test("missing and ambiguous media produce source links rather than broken images
   assert.equal(adfToMarkdown(mediaDoc), "screen.png (media unavailable)");
 });
 
-test("HTML fallback keeps readable text and removes executable or styling text", () => {
-  assert.equal(typeof DOMParser, "undefined");
-  const result = htmlToMarkdown('<p>Hello <strong>world</strong> &amp; &#x1F600;</p><script>alert(1)</script><style>body { color: red; }</style><p>&lt;literal&gt;<br>next</p>');
-  assert.equal(result, "Hello world & 😀\n\n\\<literal\\>\nnext");
+test("direct media links resolve relative URLs and reject unsafe schemes", () => {
+  const media = (url) => doc({ type: "media", attrs: { alt: "Download", url } });
+  assert.equal(adfToMarkdown(media("/file (1)?a=1&b=2"), { baseUrl }), "[Download](https://example.atlassian.net/file%20%281%29?a=1&b=2)");
+  assert.equal(adfToMarkdown(media("javascript:alert(1)"), { baseUrl }), `[Download — view in Jira](${baseUrl})`);
+  assert.equal(adfToMarkdown(media("javascript:alert(1)")), "Download (media unavailable)");
 });
 
 const issue = {
