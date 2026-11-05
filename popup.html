@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jira Copy Markdown</title>
+  <link rel="stylesheet" href="popup.css">
+  <script type="module" src="src/popup.js"></script>
+</head>
+<body>
+  <header>
+    <img src="icons/icon48.png" width="38" height="38" alt="">
+    <div><h1>Jira Copy Markdown</h1><p>From issue to clipboard.</p></div>
+  </header>
+  <main>
+    <section id="notice" class="notice" role="status" aria-live="polite" data-state="loading">
+      <span id="status-icon" aria-hidden="true">…</span>
+      <div><h2 id="status-title">Reading your issue</h2><p id="status-detail">Keep this popup open while the Markdown is prepared.</p></div>
+    </section>
+    <section id="issue" class="issue" hidden>
+      <div class="issue-meta"><span id="issue-key"></span><span id="issue-type"></span></div>
+      <h2 id="issue-title"></h2>
+      <p id="issue-counts"></p>
+    </section>
+    <button id="copy" class="primary" type="button" disabled>Preparing Markdown…</button>
+    <p id="warnings" class="warning" hidden></p>
+    <details id="options" hidden>
+      <summary>Include in Markdown</summary>
+      <div class="option-grid">
+        <label><input type="checkbox" name="description" checked>Description</label>
+        <label><input type="checkbox" name="metadata" checked>Metadata</label>
+        <label><input type="checkbox" name="comments" checked>Comments</label>
+        <label><input type="checkbox" name="attachments" checked>Attachment links</label>
+        <label><input type="checkbox" name="sections" checked>Extra sections</label>
+        <label><input type="checkbox" name="fields">Custom fields</label>
+      </div>
+      <p class="hint">Saved for next time. Click Copy after changing options.</p>
+    </details>
+    <details id="preview" hidden>
+      <summary>View Markdown</summary>
+      <textarea id="markdown" aria-label="Generated Markdown" readonly spellcheck="false"></textarea>
+    </details>
+    <p class="footnote">Attachment links open in Jira. Access may require sign-in.</p>
+  </main>
+  <footer><span>inndevs</span><span>Made for copy &amp; paste.</span></footer>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "jira-copy-markdown",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Copy Jira issues as Markdown in one click.",
+  "scripts": { "test": "node --test", "package": "python3 scripts/package.py" },
+  "license": "MIT"
+}
