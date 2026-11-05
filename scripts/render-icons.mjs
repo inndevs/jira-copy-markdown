@@ -98,7 +98,7 @@ try {
       document.body.style.cssText = 'margin:0;background:#f5f3ea;color:#173e35;font:14px -apple-system,BlinkMacSystemFont,sans-serif;padding:28px;';
       const heading = document.createElement('h1');
       heading.style.cssText = 'font-size:22px;margin:0 0 28px;';
-      heading.textContent = 'Jira Copy Markdown — native size and pixel inspection';
+      heading.textContent = 'Jira Ticket – Copy as Markdown — native size and pixel inspection';
       document.body.append(heading);
       const grid = document.createElement('div');
       grid.style.cssText = 'display:flex;gap:28px;';

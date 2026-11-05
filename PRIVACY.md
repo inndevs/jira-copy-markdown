@@ -1,6 +1,6 @@
 # Privacy policy
 
-Jira Copy Markdown is maintained by inndevs. This policy describes the extension's handling of data. Last updated: November 5, 2026.
+Jira Ticket – Copy as Markdown is maintained by inndevs. This policy describes the extension's handling of data. Last updated: November 5, 2026.
 
 ## What the extension accesses
 
@@ -22,7 +22,7 @@ Attachment files are not downloaded. Only attachment names and links are include
 
 The extension has no developer-operated server, analytics, advertising, or telemetry. It does not send issue content, preferences, or browsing data to inndevs or to third-party services. Network requests for issue data go to the Jira site you are using, whose operator may record those requests under its own policies. The extension does not sell data or use it for advertising, profiling, or lending decisions.
 
-The use of user data by Jira Copy Markdown complies with the Chrome Web Store User Data Policy, including its Limited Use requirements.
+The use of user data by Jira Ticket – Copy as Markdown complies with the Chrome Web Store User Data Policy, including its Limited Use requirements.
 
 ## Your controls
 

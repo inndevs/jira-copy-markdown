@@ -2,7 +2,7 @@
 
 ## Name
 
-Jira Copy Markdown
+Jira Ticket – Copy as Markdown
 
 ## Summary
 

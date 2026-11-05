@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <title>Jira Copy Markdown</title>
+  <title>Jira Ticket – Copy as Markdown</title>
   <desc>A bold Markdown M with an offset copy corner on a green tile.</desc>
   <!-- Store artwork keeps a 16px margin. The toolbar renderer crops to this tile. -->
   <g transform="translate(16 16) scale(6)">

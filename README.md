@@ -1,15 +1,15 @@
-# Jira Copy Markdown
+# Jira Ticket – Copy as Markdown
 
 Copy the Jira issue you have open as Markdown. Use the result in notes, documents, pull requests, or other places that accept plain text.
 
-Jira Copy Markdown is an independent, open-source browser extension by [inndevs](https://github.com/inndevs). It is not affiliated with or endorsed by Atlassian.
+Jira Ticket – Copy as Markdown is an independent, open-source browser extension by [inndevs](https://github.com/inndevs). It is not affiliated with or endorsed by Atlassian.
 
-![Jira Copy Markdown showing a fictional issue and its formatted Markdown](store/screenshot-1280x800.png)
+![Jira Ticket – Copy as Markdown showing a fictional issue and its formatted Markdown](store/screenshot-1280x800.png)
 
 ## Use
 
 1. Open a Jira issue over HTTPS in Chrome and sign in to Jira as usual.
-2. Click the Jira Copy Markdown extension. It reads the issue and copies Markdown automatically.
+2. Click the Jira Ticket – Copy as Markdown extension. It reads the issue and copies Markdown automatically.
 3. Paste the result where you need it.
 
 To change the output, expand **Include in Markdown**, adjust the options, and click **Copy Markdown**. Description, metadata, comments, attachment links, and extra sections are included by default. Additional field values can be enabled under **Custom fields**. Preferences are remembered for the next export. You can inspect the generated text under **View Markdown** and copy it manually if clipboard access fails.
